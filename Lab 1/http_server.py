@@ -1,38 +1,9 @@
 
-# import os, sys
-# from socket import *
-# serverSocket = socket(AF_INET, SOCK_STREAM)
-
-# while True:
-#     #Establish the connection
-#     print 'Ready to serve...'
-#     connectionSocket, addr =
-#     try:
-#         #Fill in start
-#         #Fill in end
-#         message = #Fill in start #Fill in end filename = message.split()[1]
-#         f = open(filename[1:])
-#         outputdata = #Fill in start #Fill in end #Send one HTTP header line into socket
-#         #Fill in start
-#         #Fill in end
-#         #Send the content of the requested file to the client
-#         for i in range(0, len(outputdata)):
-#             connectionSocket.send(outputdata[i])
-#         connectionSocket.close()
-#     except IOError:
-#         pass
-#         #Send response message for file not found
-#     #Fill in start #Fill in end
-#     #Close client socket #Fill in start #Fill in end
-#     serverSocket.close()
-
-
 from optparse import OptionParser
-import SocketServer
 from datetime import datetime
-import os, sys, socket
+import os, sys, socket, time, SocketServer
 
-
+# Handle a http get request
 def handle_get(command):
     get, path, version = command.split()
 
@@ -41,10 +12,8 @@ def handle_get(command):
 
     # Does the path exist?
     if not os.path.exists(path):
-        not_found = http_response(404)
-        # self.request.sendall(str(not_found))
+        not_found = http_header(404)
         return str(not_found)
-        return
 
     # Did we get a directory, try to find 
     # index.htm, or index.html
@@ -57,24 +26,27 @@ def handle_get(command):
 
     # We couldn't find the given file
     if not os.path.isfile(path):
-        not_found = http_response(404)
-        # self.request.sendall(str(not_found))
+        not_found = http_header(404)
         return str(not_found)
-        return
 
     # Open and read the file
     data = open(path, "rb").readlines()
     reply = "".join(data)
 
-    header = http_response(200, len(reply))
+    modified_time = datetime.fromtimestamp(os.path.getmtime(path))
+
+    header = http_header(200, len(reply), modified_time)
     reply = str(header) + reply
-    # self.request.sendall(reply+"\n\n")
     return reply
 
 
 
 
-class http_response:
+class http_header:
+    """
+    This class represents the header for a http response
+    """
+
     def __init__(self, code, length=0, modified=datetime.now()):
         self._code = code
         self._length = length
@@ -98,6 +70,8 @@ class http_response:
     def _format_date(self, date):
         return date.strftime("%a, %d %b %Y %H:%M:%S %Z")
 
+
+# Handler for the HTTP connections
 class HttpHandler(SocketServer.BaseRequestHandler):
 
     def handle(self):
@@ -112,9 +86,8 @@ class HttpHandler(SocketServer.BaseRequestHandler):
             results = handle_get(command)
             self.request.sendall(results)
 
-
+# Start a multi-threaded server using the SocketServer architecture
 def start_threaded():
-
     try:
         # Start our TCP server
         server = SocketServer.TCPServer(("localhost", 80), HttpHandler)
@@ -122,34 +95,38 @@ def start_threaded():
     except:
         print "Could not bind to socket"
 
-def start_simple():
 
-    serverSocket = socket.socket(AF_INET, SOCK_STREAM)
+# Start a simple, single-threaded server
+def start_simple():
+    serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # Bind to localhost, and set the timeout
-    serverSocket.bind("localhost")
-    serverSocket.settimeout(0.1)
+    try:
+        serverSocket.bind(("localhost", 80))
+    except:
+        print "Unable to bind socket"
+        sys.exit(-1)
 
-    while True:
         #Establish the connection
         print 'Ready to serve...'
-        # try:
-        serverSocket.listen()
-        # except:
-        #     continue
 
+    while True:
+        serverSocket.listen(5)
+
+        # accept the connection
         connectionSocket, addr = serverSocket.accept()
 
-        if len(self._data) == 0:
+
+        data = connectionSocket.recv(1024)
+        if len(data) == 0:
             return
 
-        command = self._data.split("\n")[0]
+        command = data.split("\n")[0]
         if command.startswith("GET"):
             results = handle_get(command)
             connectionSocket.send(results)
 
         connectionSocket.close()
-
 
 
 # Main entry point
@@ -159,11 +136,11 @@ if __name__ == "__main__":
 
     parser = OptionParser()
     parser.add_option("-t", "--threaded", dest="threaded",
-                      default=True, action="store_true",
+                      default=False, action="store_true",
                       help="start multi-threaded server")
 
     parser.add_option("-s", "--simple", dest="simple",
-                      default=True, action="store_true",
+                      default=False, action="store_true",
                       help="start single-threaded server")
 
     (options, args) = parser.parse_args()
