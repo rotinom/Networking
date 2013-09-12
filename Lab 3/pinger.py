@@ -28,7 +28,7 @@ def checksum(str):
 
 
 
-DUMMY_PORT = 1S
+DUMMY_PORT = 1
 
 def print_buffer(buf):
     ba = bytearray(buf)
@@ -75,6 +75,13 @@ class ICMP:
         answer = ~csum
         answer = answer & 0xffff
         answer = answer >> 8 | (answer << 8 & 0xff00)
+
+        # Get the right checksum, and put in the header
+        if sys.platform == 'darwin':
+            answer = htons(answer) & 0xffff
+        else:
+            answer = htons(answer)
+
         return answer        
 
 
@@ -91,7 +98,11 @@ class ICMP:
 
         return ret
 
+    def decode(self):
+        (self.type, self.code, self.checksum) = struct.unpack("bbH", self.data[20:24])
 
+        # print self.type
+        # print self.code
 
 
 class ECHO_REQUEST(ICMP):
@@ -104,14 +115,26 @@ class ECHO_REQUEST(ICMP):
         self.seq_num = kwargs.get("seq_num", 0)
         self.data    = kwargs.get("data",    0)
 
-
     def pack(self):
         self.extra = struct.pack("HH", self.id, self.seq_num)
         return ICMP.pack(self)
 
 
+class ECHO_RESPONSE(ICMP):
+    def __init__(self, **kwargs):
+        ICMP.__init__(self)
 
+        # self.id      = None
+        # self.seq_num = None
+        self.data    = kwargs.get("data",    0)
 
+        print_buffer(self.data)
+
+    def decode(self):
+        ICMP.decode(self)
+        self.extra = struct.unpack("HH", self.data[24:28])
+        print self.extra
+        return 
 
 
 def receiveOnePing(mySocket, ID, timeout, destAddr):
@@ -191,11 +214,23 @@ def my_ping(host, timeout=1.0):
     # Create the ICMP header
     hdr = ECHO_REQUEST(data=string.lowercase)
     buff = hdr.pack()
-    print_buffer(buff)
+    #print_buffer(buff)
 
 
     addr = gethostbyname(host)
+    print "Sending ping to %s" % host
     sock.sendto(buff, (host, DUMMY_PORT))
+
+    # Wait for a receive
+    try:
+        recv_packet, addr = sock.recvfrom(1024)
+        resp = ECHO_RESPONSE(data=recv_packet)
+        resp.decode()
+
+    except:
+        raise
+
+
 
 # def OLD_PING(host, timeout=1):
 #     #timeout=1 means: If one second goes by without a reply from the server,
@@ -216,7 +251,7 @@ def my_ping(host, timeout=1.0):
 
 def main():
 
-    my_ping("localhost")
+    my_ping("192.168.1.1")
 
     sys.exit(-1)
     if len(sys.argv) != 2:
@@ -224,7 +259,7 @@ def main():
         sys.exit(-1)
 
     parser.add_option("-n", "", dest="num_packets",
-                      default=4, action="store",
+                      default=1, action="store",
                       help="Number of pings to send")
 
     (options, args) = parser.parse_args()
