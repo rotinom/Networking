@@ -6,30 +6,17 @@ import os, sys, struct, time, string, select, binascii
 
 
 
-ICMP_ECHO_REQUEST = 8
-def checksum(str):
-    csum = 0
-    countTo = (len(str) / 2) * 2
-    count = 0
-    while count < countTo:
-        thisVal = ord(str[count+1]) * 256 + ord(str[count])
-        csum = csum + thisVal
-        csum = csum & 0xffffffffL
-        count = count + 2
-    if countTo < len(str):
-        csum = csum + ord(str[len(str) - 1])
-        csum = csum & 0xffffffffL
-    csum = (csum >> 16) + (csum & 0xffff)
-    csum = csum + (csum >> 16)
-    answer = ~csum
-    answer = answer & 0xffff
-    answer = answer >> 8 | (answer << 8 & 0xff00)
-    return answer
-
-
+# Stats
+send_count = 0
+recv_count = 0
+rtt_min = sys.maxint
+rtt_max = 0.0
+rtt_list = []
+remote_host = None
 
 DUMMY_PORT = 1
 
+# Print out the buffer
 def print_buffer(buf):
     ba = bytearray(buf)
 
@@ -47,7 +34,7 @@ class ICMP:
     0-7     Type
     8-15    Code
     16-31   Checksum
-    32-64   Rest of header
+    32-64   Type/Code dependent
     """
 
     def __init__(self, **kwargs):
@@ -99,10 +86,8 @@ class ICMP:
         return ret
 
     def decode(self):
-        (self.type, self.code, self.checksum) = struct.unpack("bbH", self.data[20:24])
-
-        # print self.type
-        # print self.code
+        # Unpack the first 4 bytes into the appropriate locations
+        (self.type, self.code, self.checksum) = struct.unpack("bbH", self.data[:4])
 
 
 class ECHO_REQUEST(ICMP):
@@ -123,80 +108,23 @@ class ECHO_REQUEST(ICMP):
 class ECHO_RESPONSE(ICMP):
     def __init__(self, **kwargs):
         ICMP.__init__(self)
-
-        # self.id      = None
-        # self.seq_num = None
+        self.type    = 0
+        self.code    = 0
         self.data    = kwargs.get("data",    0)
 
-        print_buffer(self.data)
+        self.decode()
 
     def decode(self):
         ICMP.decode(self)
-        self.extra = struct.unpack("HH", self.data[24:28])
-        print self.extra
-        return 
+        self.extra, self.seq_num = struct.unpack("HH", self.data[4:8])
+
+        if 0 != self.type:
+            print dir(type(self))
+            raise Exception("Attempted to unpack the wrong data into a ECHO_RESPONSE")
 
 
-def receiveOnePing(mySocket, ID, timeout, destAddr):
-    timeLeft = timeout
-    while True:
-        startedSelect = time.time()
-        whatReady = select.select([mySocket], [], [], timeLeft)
-        howLongInSelect = (time.time() - startedSelect)
-        if whatReady[0] == []: # Timeout
-            return "Request timed out."
-        timeReceived = time.time()
-        recPacket, addr = mySocket.recvfrom(1024)
 
-        #Fill in start
-        #Fetch the ICMP header from the IP packet
-        #Fill in end
-
-        timeLeft = timeLeft - howLongInSelect
-        if timeLeft <= 0:
-            return "Request timed out."
-
-def sendOnePing(mySocket, destAddr, ID):
-    # Header is type (8), code (8), checksum (16), id (16), sequence (16)
-    myChecksum = 0
-
-    # Make a dummy header with a 0 checksum.
-    # struct -- Interpret strings as packed binary data
-    header = struct.pack("bbHHh", ICMP_ECHO_REQUEST, 0, myChecksum, ID, 1)
-    data = struct.pack("d", time.time())
-
-    # Calculate the checksum on the data and the dummy header.
-    myChecksum = checksum(header + data)
-
-    # Get the right checksum, and put in the header
-    if sys.platform == 'darwin':
-        myChecksum = socket.htons(myChecksum) & 0xffff
-        #Convert 16-bit integers from host to network byte order.
-    else:
-        myChecksum = socket.htons(myChecksum)
-
-    header = struct.pack("bbHHh", ICMP_ECHO_REQUEST, 0, myChecksum, ID, 1)
-    packet = header + data
-    mySocket.sendto(packet, (destAddr, 1)) # AF_INET address must be tuple, not str
-    #Both LISTS and TUPLES consist of a number of objects
-    #which can be referenced by their position number within the object
-
-def ping(destAddr, timeout):
-    icmp = socket.getprotobyname("icmp")
-#SOCK_RAW is a powerful socket type. For more details see: http://sock-raw.org/papers/sock_raw
-
-    #Fill in start
-    #Create Socket here
-    #Fill in end
-
-    myID = os.getpid() & 0xFFFF  #Return the current process i
-    sendOnePing(mySocket, destAddr, myID)
-    delay = receiveOnePing(mySocket, myID, timeout, destAddr)
-    mySocket.close()
-    return delay
-
-
-def my_ping(host, timeout=1.0):
+def my_ping(host, count, timeout=1.0):
 
     # Create the raw socket
     icmp = getprotobyname("icmp")
@@ -204,72 +132,141 @@ def my_ping(host, timeout=1.0):
         sock = socket(AF_INET, SOCK_RAW, icmp)
     except error, (errno, msg):
         if 1 == errno:
-            print "Cannot create socket.  Please run this as root"
+            print "Cannot create socket.  Please ensure you are running as root"
             sys.exit(-1)
         else:
             raise
-    sock.settimeout(0.1)
-
 
     # Create the ICMP header
-    hdr = ECHO_REQUEST(data=string.lowercase)
-    buff = hdr.pack()
-    #print_buffer(buff)
-
+    data = string.lowercase
 
     addr = gethostbyname(host)
-    print "Sending ping to %s" % host
-    sock.sendto(buff, (host, DUMMY_PORT))
+    print "Sending ping to %s(%s): %i data bytes" % (host, addr, len(data))
 
-    # Wait for a receive
-    try:
+
+    # Send N pings
+    for i in xrange(0, count):
+
+        hdr = ECHO_REQUEST(data=data, seq_num=(i+1))
+        buff = hdr.pack()
+
+        # Send it
+        global send_count
+        send_count += 1
+        sock.sendto(buff, (host, DUMMY_PORT))
+
+        # Wait for a response
+        startedSelect = time.time()
+        whatReady = select.select([sock], [], [], timeout)
+        howLongInSelect = (time.time() - startedSelect)
+        if whatReady[0] == []: # Timeout
+            print "Timed out"
+            return
+
+        # Note when we recieved it
+        timeReceived = time.time()
+
         recv_packet, addr = sock.recvfrom(1024)
-        resp = ECHO_RESPONSE(data=recv_packet)
-        resp.decode()
 
-    except:
-        raise
+        # recv_packet is a full IP packet.  So we are going to 
+        # skip the IP header, so let's pull out the length
+
+        hdr_len = 0x0F & ord(recv_packet[0])
+        hdr_len *= 4 # Stored in the packet is the number of 32-bit words
+
+        icmp_data = recv_packet[hdr_len:]
+
+        # Parse the response
+        try:
+            resp = ECHO_RESPONSE(data=icmp_data)
+        except:
+            print("Got an unhandled response back")
+            continue
+
+        global recv_count
+        recv_count += 1
+
+        rtt = (timeReceived - startedSelect) * 1000
+
+        print("%i bytes from %s: icmp_seq=%i time=%02f ms" % 
+            (
+                len(icmp_data), 
+                addr[0], 
+                resp.seq_num,
+                rtt
+            )
+        )
+
+        # Save min/max
+        global rtt_max
+        global rtt_min
+        global rtt_list
+        if rtt > rtt_max:
+            rtt_max =  rtt
+        if rtt < rtt_min:
+            rtt_min = rtt
+
+        rtt_list.append(rtt)
 
 
+        # Sleep for a second if called in a loop
+        if count > 1:
+            time.sleep(1.0)
 
-# def OLD_PING(host, timeout=1):
-#     #timeout=1 means: If one second goes by without a reply from the server,
-#     #the client assumes that either the client's ping or the server's pong is lost
+    # Close the socket
+    sock.close()
 
-#     dest = socket.gethostbyname(host)
-#     print "Pinging " + dest + " using Python:"
-#     print ""
 
-#     #Send ping requests to a server separated by approximately one second
-#     while True :
-#         delay = doOnePing(dest, timeout)
-#         print delay
-#         time.sleep(1)
+def print_stats():
 
-#     return delay
+    global send_count
+    global recv_count
+    global remote_host
+    global rtt_max
+    global rtt_min
+
+    rtt_sum = 0
+    for rtt in rtt_list:
+        rtt_sum += rtt
+
+    rtt_avg = rtt_sum / len(rtt_list)
+
+    print """\
+--- %s ping statistics ---
+%i packets transmitted, %i packets received, %f%% packet loss
+round-trip min/avg/max = %f/%f/%f
+""" % (
+    remote_host, 
+    send_count, 
+    recv_count, 
+    ((1-recv_count/send_count)*100),
+    rtt_min,
+    rtt_max,
+    rtt_avg)
 
 
 def main():
 
-    my_ping("192.168.1.1")
 
-    sys.exit(-1)
-    if len(sys.argv) != 2:
-        print "Usage: %s <hostname>" % sys.argv[0]
-        sys.exit(-1)
-
+    parser = OptionParser()
     parser.add_option("-n", "", dest="num_packets",
                       default=1, action="store",
+                      type="int",
                       help="Number of pings to send")
 
     (options, args) = parser.parse_args()
 
-    remote_host = sys.arg[1]
+    # Error check the arguments
+    if len(args) != 1:
+        parser.print_help()
+        sys.exit(-1)
 
-    for i in xrange(0, options.num_packets):
-        delay = ping(remote_host)
-        time.sleep(1.0)
-
+    # Ping the remote host
+    global remote_host
+    remote_host = args[0]
+    delay = my_ping(remote_host, options.num_packets)
+        
+    print_stats()
 
 """
 This is used so that main() will only be called if it is called
