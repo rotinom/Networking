@@ -1,5 +1,12 @@
 #!/usr/bin/python
 
+
+# Dave Weber
+# CSE 5344 - Networking
+# Link Simulation and Training Cohort
+# 570-977-1936
+# rotinom@gmail.com
+
 from socket import *
 from optparse import OptionParser
 import os, sys, struct, time, string, select, binascii
