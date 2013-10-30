@@ -1,0 +1,74 @@
+0xDEADBEEF:Lab 3 rotinom$ sudo ./pinger.py  -n10 www.google.co.in
+Sending ping to www.google.co.in(74.125.227.152): 13 data bytes
+21 bytes from 74.125.227.152: icmp_seq=1 ttl=58 time=63.504 ms
+21 bytes from 74.125.227.152: icmp_seq=2 ttl=58 time=22.486 ms
+21 bytes from 74.125.227.152: icmp_seq=3 ttl=58 time=83.030 ms
+21 bytes from 74.125.227.152: icmp_seq=4 ttl=58 time=67.574 ms
+21 bytes from 74.125.227.152: icmp_seq=5 ttl=58 time=51.100 ms
+21 bytes from 74.125.227.152: icmp_seq=6 ttl=58 time=95.949 ms
+21 bytes from 74.125.227.152: icmp_seq=7 ttl=58 time=20.728 ms
+Timed out
+21 bytes from 74.125.227.152: icmp_seq=9 ttl=58 time=147.283 ms
+21 bytes from 74.125.227.152: icmp_seq=10 ttl=58 time=334.754 ms
+--- www.google.co.in ping statistics ---
+10 packets transmitted, 9 packets received, 10.00% packet loss
+round-trip min/avg/max = 20.73/98.49/334.75
+
+
+
+
+0xDEADBEEF:Lab 3 rotinom$ sudo ./pinger.py  -n10 www.google.co.za
+Sending ping to www.google.co.za(74.125.227.255): 13 data bytes
+21 bytes from 74.125.227.255: icmp_seq=1 ttl=58 time=103.794 ms
+21 bytes from 74.125.227.255: icmp_seq=2 ttl=58 time=39.824 ms
+21 bytes from 74.125.227.255: icmp_seq=3 ttl=58 time=106.326 ms
+21 bytes from 74.125.227.255: icmp_seq=4 ttl=58 time=21.139 ms
+21 bytes from 74.125.227.255: icmp_seq=5 ttl=58 time=21.118 ms
+21 bytes from 74.125.227.255: icmp_seq=6 ttl=58 time=22.000 ms
+21 bytes from 74.125.227.255: icmp_seq=7 ttl=58 time=107.166 ms
+21 bytes from 74.125.227.255: icmp_seq=8 ttl=58 time=43.015 ms
+21 bytes from 74.125.227.255: icmp_seq=9 ttl=58 time=332.862 ms
+21 bytes from 74.125.227.255: icmp_seq=10 ttl=58 time=14.999 ms
+--- www.google.co.za ping statistics ---
+10 packets transmitted, 10 packets received, 0.00% packet loss
+round-trip min/avg/max = 15.00/81.22/332.86
+
+
+
+
+0xDEADBEEF:Lab 3 rotinom$ sudo ./pinger.py  -n10 www.google.com.br
+Sending ping to www.google.com.br(173.194.46.31): 13 data bytes
+21 bytes from 173.194.46.31: icmp_seq=1 ttl=58 time=102.300 ms
+21 bytes from 173.194.46.31: icmp_seq=2 ttl=58 time=26.001 ms
+21 bytes from 173.194.46.31: icmp_seq=3 ttl=58 time=16.607 ms
+21 bytes from 173.194.46.31: icmp_seq=4 ttl=58 time=26.627 ms
+21 bytes from 173.194.46.31: icmp_seq=5 ttl=58 time=23.237 ms
+21 bytes from 173.194.46.31: icmp_seq=6 ttl=58 time=18.975 ms
+21 bytes from 173.194.46.31: icmp_seq=7 ttl=58 time=23.590 ms
+21 bytes from 173.194.46.31: icmp_seq=8 ttl=58 time=18.426 ms
+21 bytes from 173.194.46.31: icmp_seq=9 ttl=58 time=27.228 ms
+21 bytes from 173.194.46.31: icmp_seq=10 ttl=58 time=18.853 ms
+--- www.google.com.br ping statistics ---
+10 packets transmitted, 10 packets received, 0.00% packet loss
+round-trip min/avg/max = 16.61/30.18/102.30
+
+
+
+
+
+0xDEADBEEF:Lab 3 rotinom$ sudo ./pinger.py  -n10 www.google.com
+Sending ping to www.google.com(173.194.115.80): 13 data bytes
+21 bytes from 173.194.115.80: icmp_seq=1 ttl=58 time=200.879 ms
+21 bytes from 173.194.115.80: icmp_seq=2 ttl=58 time=123.818 ms
+21 bytes from 173.194.115.80: icmp_seq=3 ttl=58 time=23.164 ms
+21 bytes from 173.194.115.80: icmp_seq=4 ttl=58 time=33.895 ms
+21 bytes from 173.194.115.80: icmp_seq=5 ttl=58 time=113.903 ms
+21 bytes from 173.194.115.80: icmp_seq=6 ttl=58 time=21.931 ms
+21 bytes from 173.194.115.80: icmp_seq=7 ttl=58 time=24.089 ms
+21 bytes from 173.194.115.80: icmp_seq=8 ttl=58 time=19.731 ms
+21 bytes from 173.194.115.80: icmp_seq=9 ttl=58 time=23.124 ms
+21 bytes from 173.194.115.80: icmp_seq=10 ttl=58 time=36.600 ms
+--- www.google.com ping statistics ---
+10 packets transmitted, 10 packets received, 0.00% packet loss
+round-trip min/avg/max = 19.73/62.11/200.88
+

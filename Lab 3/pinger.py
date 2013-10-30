@@ -138,7 +138,7 @@ def my_ping(host, count, timeout=1.0):
             raise
 
     # Create the ICMP header
-    data = string.lowercase
+    data = str(time.time())
 
     addr = gethostbyname(host)
     print "Sending ping to %s(%s): %i data bytes" % (host, addr, len(data))
@@ -161,7 +161,7 @@ def my_ping(host, count, timeout=1.0):
         howLongInSelect = (time.time() - startedSelect)
         if whatReady[0] == []: # Timeout
             print "Timed out"
-            return
+            continue
 
         # Note when we recieved it
         timeReceived = time.time()
@@ -173,6 +173,8 @@ def my_ping(host, count, timeout=1.0):
 
         hdr_len = 0x0F & ord(recv_packet[0])
         hdr_len *= 4 # Stored in the packet is the number of 32-bit words
+
+        ttl = ord(recv_packet[8])
 
         icmp_data = recv_packet[hdr_len:]
 
@@ -188,11 +190,12 @@ def my_ping(host, count, timeout=1.0):
 
         rtt = (timeReceived - startedSelect) * 1000
 
-        print("%i bytes from %s: icmp_seq=%i time=%02f ms" % 
+        print("%i bytes from %s: icmp_seq=%i ttl=%i time=%.3f ms" % 
             (
                 len(icmp_data), 
                 addr[0], 
                 resp.seq_num,
+                ttl,
                 rtt
             )
         )
@@ -229,24 +232,33 @@ def print_stats():
     for rtt in rtt_list:
         rtt_sum += rtt
 
-    rtt_avg = rtt_sum / len(rtt_list)
+    # Protect from div by zero
+    rtt_avg = 0
+    if 0 != len(rtt_list):
+        rtt_avg = rtt_sum / len(rtt_list)
+
+    # If we never got a response, min will be max_int; 
+    # fix that here.
+    if rtt_min > rtt_max:
+        rtt_min = rtt_max
+
 
     print """\
 --- %s ping statistics ---
-%i packets transmitted, %i packets received, %f%% packet loss
-round-trip min/avg/max = %f/%f/%f
+%i packets transmitted, %i packets received, %.2f%% packet loss
+round-trip min/avg/max = %.2f/%.2f/%.2f
 """ % (
     remote_host, 
     send_count, 
     recv_count, 
-    ((1-recv_count/send_count)*100),
+    ((1.0-(float(recv_count)/float(send_count)))*100.0),
     rtt_min,
-    rtt_max,
-    rtt_avg)
+    rtt_avg,
+    rtt_max)
+
 
 
 def main():
-
 
     parser = OptionParser()
     parser.add_option("-n", "", dest="num_packets",
@@ -267,6 +279,8 @@ def main():
     delay = my_ping(remote_host, options.num_packets)
         
     print_stats()
+
+
 
 """
 This is used so that main() will only be called if it is called
